@@ -11,6 +11,7 @@
 #define LED_PIN 7
 
 #define BILLION 1000000000L
+#define MILLION 1000000L
 
 FILE *fd = NULL;
 char fname [30];
@@ -84,7 +85,7 @@ void ldr_read_val()
 
     clock_gettime (CLOCK_MONOTONIC, &endt);
     diff = BILLION * (endt.tv_sec - startt.tv_sec) + endt.tv_nsec - startt.tv_nsec;
-    diff /= 1000; // to get micro-seconds
+    diff /= MILLION; // to get milli-seconds
 
     if (diff > 5000) 
         led_write_val (1);
