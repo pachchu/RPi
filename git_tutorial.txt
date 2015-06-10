@@ -128,3 +128,27 @@ To https://github.com/pachchu/RPi
 pi@raspberrypi ~/RPi $ 
 pi@raspberrypi ~/RPi $ 
 
+
+
+// FIRST create file and commit from RPi shell
+
+
+
+pi@raspberrypi ~/RPi $ vi git_tutorial.txt
+pi@raspberrypi ~/RPi $ git add git_tutorial.txt
+pi@raspberrypi ~/RPi $ git commit
+[master bd38c6f] added GIT instructions.
+ 1 file changed, 130 insertions(+)
+ create mode 100644 git_tutorial.txt
+pi@raspberrypi ~/RPi $ git push origin master
+Username for 'https://github.com': pachchu@gmail.com
+Password for 'https://pachchu@gmail.com@github.com': 
+Counting objects: 4, done.
+Delta compression using up to 4 threads.
+Compressing objects: 100% (3/3), done.
+Writing objects: 100% (3/3), 1.58 KiB, done.
+Total 3 (delta 0), reused 0 (delta 0)
+To https://github.com/pachchu/RPi
+   d862db6..bd38c6f  master -> master
+
+
