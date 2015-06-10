@@ -87,7 +87,7 @@ void ldr_read_val()
     diff = BILLION * (endt.tv_sec - startt.tv_sec) + endt.tv_nsec - startt.tv_nsec;
     diff /= MILLION; // to get milli-seconds
 
-    if (diff > 5000) 
+    if (diff > 5) 
         led_write_val (1);
     else 
         led_write_val (0);
