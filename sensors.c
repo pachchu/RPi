@@ -54,6 +54,10 @@ void pir_read_val()
 void ldr_read_val()
 {
 #define MAX_LDR_LOOPS 1000000
+// tested in the room with lights off
+// for day time testing, use lower values such as 5
+#define LOW_LIGHT_CUTOFF 100
+
     /* C = 1uF, R = (2.2K+PhotoResistor)Ohm */
     struct timespec startt, endt;
 
@@ -71,10 +75,10 @@ void ldr_read_val()
 
     // poll the LDR PIN to see how long it takes to get to 2v
     // RPi input pin goes high at approx 2v (~ 63% of 3.3v)
-    for (i = 0; i < MAX_LDR_LOOPS; i++) {
+    for (i = 0; i < MAX_LDR_LOOPS/1000; i++) {
         ldr = digitalRead(LDR_PIN);
         if (ldr == 1)  break;
-        delayMicroseconds(1);
+        delayMicroseconds(1000);
     }
 
     if (!ldr) {
@@ -87,7 +91,7 @@ void ldr_read_val()
     diff = BILLION * (endt.tv_sec - startt.tv_sec) + endt.tv_nsec - startt.tv_nsec;
     diff /= MILLION; // to get milli-seconds
 
-    if (diff > 5) 
+    if (diff > LOW_LIGHT_CUTOFF) 
         led_write_val (1);
     else 
         led_write_val (0);

@@ -1,3 +1,36 @@
+*********************** CHEAT-SHEET ********************
+
+*** GENERAL COMMANDS TO GET STARTED ***
+$ git config --global user.email "pachchu@gmail.com"
+$ git config --global user.name "Prasad Rao"
+// following needed for password less 'push'
+$ cd ~
+$ ssh-keygen
+$ cd .ssh; cat id_rsa.pub
+// copy the above 'cat' output to keys in the github website
+
+*** CLONE FROM GITHUB ***
+pi@raspberrypi ~ $ git clone https://github.com/pachchu/RPi
+pi@raspberrypi ~/RPi $ git remote -v
+pi@raspberrypi ~/RPi $ git remote add upstream https://github.com/pachchu/RPi.git
+
+*** UPDATE FROM UPSTREAM ***
+pi@raspberrypi ~/RPi $ git fetch upstream
+pi@raspberrypi ~/RPi $ git checkout master
+pi@raspberrypi ~/RPi $ git merge upstream/master
+
+*** PUSH TO UPSTREAM ***
+// 'add' the modified files (git_tutorial.txt)
+pi@raspberrypi ~/RPi $ git add git_tutorial.txt
+// 'commit' to local repo
+pi@raspberrypi ~/RPi $ git commit
+// 'push' to remote repo (origin) from local repo (master)
+pi@raspberrypi ~/RPi $ git push origin master
+
+********************* SAMPLE OUTPUT ***********************
+
+*** CLONE A GITHUB REPOSITORY ***
+
 pi@raspberrypi ~ $ git clone https://github.com/pachchu/RPi
 Cloning into 'RPi'...
 remote: Counting objects: 9, done.
@@ -7,6 +40,9 @@ Unpacking objects: 100% (9/9), done.
 pi@raspberrypi ~ $ ls RPi
 README.md  sensors.c
 pi@raspberrypi ~ $ cd RPi
+
+*** LIST THE CONFIGURED REMOTE LINKS ***
+
 pi@raspberrypi ~/RPi $ git remote -v
 origin	https://github.com/pachchu/RPi (fetch)
 origin	https://github.com/pachchu/RPi (push)
@@ -22,12 +58,17 @@ usage: git remote add [<options>] <name> <url>
     --mirror[=<push|fetch>]
                           set up remote as a mirror to push to or fetch from
 
+*** CONFIGURE REMOTE REPO TO SYNC WITH ***
+
 pi@raspberrypi ~/RPi $ git remote add upstream https://github.com/pachchu/RPi.git
 pi@raspberrypi ~/RPi $ git remote -v
 origin	https://github.com/pachchu/RPi (fetch)
 origin	https://github.com/pachchu/RPi (push)
 upstream	https://github.com/pachchu/RPi.git (fetch)
 upstream	https://github.com/pachchu/RPi.git (push)
+
+*** SYNC THE FORK WITH UPSTREAM ***
+
 pi@raspberrypi ~/RPi $ git fetch upstream
 From https://github.com/pachchu/RPi
  * [new branch]      master     -> upstream/master
@@ -47,11 +88,6 @@ total 12
 -rw-r--r-- 1 pi pi   32 Jun 10 14:44 README.md
 pi@raspberrypi ~/RPi $ date
 Wed Jun 10 14:49:13 IST 2015
-pi@raspberrypi ~/RPi $ git remote -v
-origin	https://github.com/pachchu/RPi (fetch)
-origin	https://github.com/pachchu/RPi (push)
-upstream	https://github.com/pachchu/RPi.git (fetch)
-upstream	https://github.com/pachchu/RPi.git (push)
 pi@raspberrypi ~/RPi $ git checkout master
 Already on 'master'
 pi@raspberrypi ~/RPi $ git merge upstream/master
@@ -59,15 +95,9 @@ Updating 8722fec..6cd2bab
 Fast-forward
  README.md |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
-pi@raspberrypi ~/RPi $ ls -tr
-sensors.c  README.md
-pi@raspberrypi ~/RPi $ ls -ltr
-total 12
--rw-r--r-- 1 pi pi 5099 Jun 10 14:44 sensors.c
--rw-r--r-- 1 pi pi   41 Jun 10 14:50 README.md
-pi@raspberrypi ~/RPi $ vi README.md
-pi@raspberrypi ~/RPi $ git merge upstream/master
-Already up-to-date.
+
+*** TIME TO MAKE CHANGES AND COMMIT TO UPSTREAM ***
+
 pi@raspberrypi ~/RPi $ git commit
 
 *** Please tell me who you are.
