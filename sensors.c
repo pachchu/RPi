@@ -9,6 +9,10 @@
 #define DHT11_PIN 1
 #define LDR_PIN 4
 #define LED_PIN 7
+#define RELAY1_PIN 5
+#define RELAY2_PIN 6
+
+#define RELAY1_OFF_DELAY 15
 
 #define BILLION 1000000000L
 #define MILLION 1000000L
@@ -19,16 +23,38 @@ time_t rawtime;
 struct tm *timeinfo;
 char buffer[32];
 
+#define USE_LED_FOR_NIGHT_LIGHT 1
+
+#ifdef USE_LED_FOR_NIGHT_LIGHT
+#define night_light_on() led_write_val(1)
+#define night_light_off() led_write_val(0)
+#else
+#define night_light_on() relay_write_val(RELAY1_PIN, 1)
+#define night_light_off() relay_write_val(RELAY1_PIN, 0)
+#endif
+
+void relay_write_val(int relay, int val)
+{
+    pinMode (relay, OUTPUT);
+    digitalWrite (relay, val);
+}
+
+int relay_read_val(int relay)
+{
+    pinMode (relay, OUTPUT);
+    return digitalRead (relay);
+}
+
 void led_write_val(int val)
 {
     pinMode (LED_PIN, OUTPUT);
     digitalWrite (LED_PIN, val);
 }
 
+int last_pir_val=2;
+
 void pir_read_val()
 {
-    static int last_pir_val=2;
-
     int pir_val=0;
     uint8_t lststate=HIGH;
     uint8_t counter=0;
@@ -37,8 +63,8 @@ void pir_read_val()
     pir_val = digitalRead(PIR_PIN);
     // verify cheksum and print the verified data
     printf("%d ", pir_val); 
+    last_pir_val = pir_val;
     if (pir_val != 0) {
-        last_pir_val = pir_val;
         if (fname[0] != '\0') {
             time (&rawtime);
             timeinfo = localtime (&rawtime);
@@ -51,9 +77,11 @@ void pir_read_val()
     }
 }
 
+int last_ldr_diff = 2000;
+
 void ldr_read_val()
 {
-#define MAX_LDR_LOOPS 1000000
+#define MAX_LDR_LOOPS 100000
 // tested in the room with lights off
 // for day time testing, use lower values such as 5
 #define LOW_LIGHT_CUTOFF 100
@@ -82,21 +110,15 @@ void ldr_read_val()
     }
 
     if (!ldr) {
-        printf("*** Something wrong, LDR = 0!! ***\n");
-        led_write_val (1);
-        return;
+        diff = 1000;
+    } else {
+        clock_gettime (CLOCK_MONOTONIC, &endt);
+        diff = BILLION * (endt.tv_sec - startt.tv_sec) + endt.tv_nsec - startt.tv_nsec;
+        diff /= MILLION; // to get milli-seconds
     }
 
-    clock_gettime (CLOCK_MONOTONIC, &endt);
-    diff = BILLION * (endt.tv_sec - startt.tv_sec) + endt.tv_nsec - startt.tv_nsec;
-    diff /= MILLION; // to get milli-seconds
-
-    if (diff > LOW_LIGHT_CUTOFF) 
-        led_write_val (1);
-    else 
-        led_write_val (0);
-
-    if (fname[0] != '\0') {
+    if (diff != last_ldr_diff && fname[0] != '\0') {
+        last_ldr_diff = diff;
         time (&rawtime);
         timeinfo = localtime (&rawtime);
 //      strftime (buffer, 26, "%Y-%m-%d, %H:%M:%S", timeinfo);
@@ -178,6 +200,8 @@ void dht11_read_val()
 
 int main(int argc, char *argv[])
 {
+    struct timespec relay_startt, currentt;
+
     printf("Interfacing Sensors With Raspberry Pi\n");
     if(wiringPiSetup()==-1)
         exit(1);
@@ -191,11 +215,33 @@ int main(int argc, char *argv[])
         }
     }
 
+    relay_write_val (RELAY1_PIN, 0);
+    clock_gettime (CLOCK_MONOTONIC, &relay_startt);
+
     while(1)
     {
-            dht11_read_val();
-            pir_read_val();
-            ldr_read_val();
+        // read all sensors */
+        dht11_read_val();
+        pir_read_val();
+        ldr_read_val();
+
+        /*
+         * if relay already 1 and 10 seconds not elapsed, don't touch
+         * if low light 
+         * if 10 seconds elapsed, then check if low_light
+         */
+        if (last_ldr_diff > LOW_LIGHT_CUTOFF) {
+           if (last_pir_val) {
+               night_light_on();
+               clock_gettime (CLOCK_MONOTONIC, &relay_startt);
+           } else {
+               clock_gettime (CLOCK_MONOTONIC, &currentt);
+               if (currentt.tv_sec > relay_startt.tv_sec + RELAY1_OFF_DELAY)
+                   night_light_off();
+           }
+        } else {
+           night_light_off();
+        }
     }
     return 0;
 }
