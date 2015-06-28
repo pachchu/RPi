@@ -1,4 +1,5 @@
 #include <wiringPi.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -6,13 +7,14 @@
 #include <time.h>
 
 #define PIR_PIN 0
+#define LM393_SOUND_PIN 2
 #define DHT11_PIN 1
 #define LDR_PIN 4
 #define LED_PIN 7
 #define RELAY1_PIN 5
 #define RELAY2_PIN 6
 
-#define RELAY1_OFF_DELAY 15
+#define NIGHT_LIGHT_DELAY 15
 
 #define BILLION 1000000000L
 #define MILLION 1000000L
@@ -23,7 +25,7 @@ time_t rawtime;
 struct tm *timeinfo;
 char buffer[32];
 
-#define USE_LED_FOR_NIGHT_LIGHT 1
+// #define USE_LED_FOR_NIGHT_LIGHT 0
 
 #ifdef USE_LED_FOR_NIGHT_LIGHT
 #define night_light_on() led_write_val(1)
@@ -51,10 +53,63 @@ void led_write_val(int val)
     digitalWrite (LED_PIN, val);
 }
 
-int last_pir_val=2;
+// Shared variable between the lm393 thread and main
+int last_lm393_sound_val = 1;
 
-void pir_read_val()
+// Following function runs in a separate thread; returns 0 on sound
+int lm393_thread_sound_read_val()
 {
+    return digitalRead(LM393_SOUND_PIN);
+}
+
+// Following function runs in a separate thread
+void *lm393_thread (void *none)
+{
+    // initialize LM393 PIN as INPUT
+    pinMode (LM393_SOUND_PIN, INPUT);
+    while (1) {
+        if (0 == last_lm393_sound_val) {
+            // sound detected, but not read by main thread. stop polling
+            delay (100); // sleep for 0.1 second
+        } else if (0 == lm393_thread_sound_read_val()) {
+            // if sound detected, set global variable so main thread can read it
+            last_lm393_sound_val = 0;
+        }
+    }
+}
+
+// these functions runs in main thread; 
+void launch_lm393_thread ()
+{
+    pthread_t thread_id;
+    pthread_create (&thread_id, NULL, &lm393_thread, NULL);
+}
+
+// reads whether a sound has been detected and clears it
+int lm393_sound_read_val()
+{
+    int tmp_val = last_lm393_sound_val;
+    if (0 == tmp_val) {
+        // a sound was detected
+        if (fname[0] != '\0') {
+            time (&rawtime);
+            timeinfo = localtime (&rawtime);
+            strftime (buffer, 26, "%H:%M:%S", timeinfo);
+
+            fd = fopen (fname, "a");
+            fprintf(fd, "%s,,,,, %d\n", buffer, tmp_val);
+            fclose (fd);
+        }
+        // reset the last read
+        last_lm393_sound_val = 1;
+    }
+    return tmp_val;
+}
+
+int pir_read_val()
+{
+    static int last_pir_val=2;
+
     int pir_val=0;
     uint8_t lststate=HIGH;
     uint8_t counter=0;
@@ -75,16 +130,18 @@ void pir_read_val()
             fclose (fd);
         }
     }
+    return last_pir_val;
 }
 
-int last_ldr_diff = 2000;
 
-void ldr_read_val()
+int ldr_read_val()
 {
 #define MAX_LDR_LOOPS 100000
 // tested in the room with lights off
 // for day time testing, use lower values such as 5
-#define LOW_LIGHT_CUTOFF 100
+#define LOW_LIGHT_CUTOFF 10
+
+    static int last_ldr_diff = 2000;
 
     /* C = 1uF, R = (2.2K+PhotoResistor)Ohm */
     struct timespec startt, endt;
@@ -128,6 +185,7 @@ void ldr_read_val()
         fprintf (fd, "%s,,,, %llu\n", buffer, (long long unsigned int) diff);
         fclose (fd);
     }
+    return last_ldr_diff;
 }
 
 void dht11_read_val()
@@ -198,9 +256,44 @@ void dht11_read_val()
     }
 }
 
+void night_light_oper (int last_ldr_diff, int last_pir_val)
+{
+    static struct timespec nl_startt, currentt;
+    static int clap_on = 0;
+
+    // clap is ON and OFF on alternate CLAPs; turn LED on/off on claps
+    if (clap_on) {
+       if (0 == lm393_sound_read_val()) {
+           clap_on = 0; led_write_val (0);
+       }
+    } else {
+       if (0 == lm393_sound_read_val()) {
+           clap_on = 1; led_write_val (1);
+       }
+    }
+    
+    /*
+     * switch off night-light if 
+     * there's sufficient light i.e. (last_ldr_diff <= LDR_LIGHT_CUTOFF) OR 
+     * no movement for NIGHT_LIGHT_DELAY # seconds
+     */
+    if (last_ldr_diff > LOW_LIGHT_CUTOFF) {
+       if (last_pir_val) {
+           night_light_on();
+           clock_gettime (CLOCK_MONOTONIC, &nl_startt);
+       } else {
+           clock_gettime (CLOCK_MONOTONIC, &currentt);
+           if (currentt.tv_sec > nl_startt.tv_sec + NIGHT_LIGHT_DELAY)
+               night_light_off();
+       }
+    } else {
+       night_light_off();
+    }
+}
+
 int main(int argc, char *argv[])
 {
-    struct timespec relay_startt, currentt;
+    int last_pir_val, last_ldr_diff;
 
     printf("Interfacing Sensors With Raspberry Pi\n");
     if(wiringPiSetup()==-1)
@@ -215,33 +308,17 @@ int main(int argc, char *argv[])
         }
     }
 
-    relay_write_val (RELAY1_PIN, 0);
-    clock_gettime (CLOCK_MONOTONIC, &relay_startt);
+    night_light_off ();
 
+    launch_lm393_thread ();
     while(1)
     {
         // read all sensors */
         dht11_read_val();
-        pir_read_val();
-        ldr_read_val();
+        last_pir_val = pir_read_val();
+        last_ldr_diff = ldr_read_val();
 
-        /*
-         * if relay already 1 and 10 seconds not elapsed, don't touch
-         * if low light 
-         * if 10 seconds elapsed, then check if low_light
-         */
-        if (last_ldr_diff > LOW_LIGHT_CUTOFF) {
-           if (last_pir_val) {
-               night_light_on();
-               clock_gettime (CLOCK_MONOTONIC, &relay_startt);
-           } else {
-               clock_gettime (CLOCK_MONOTONIC, &currentt);
-               if (currentt.tv_sec > relay_startt.tv_sec + RELAY1_OFF_DELAY)
-                   night_light_off();
-           }
-        } else {
-           night_light_off();
-        }
+        night_light_oper (last_ldr_diff, last_pir_val);
     }
     return 0;
 }
