@@ -7,6 +7,7 @@
 
 $jag_db = new jaguars_db;
 
+$fees_form = 1;
 $nfc = $_GET['nfc'];
 $fees = $_GET['fees'];
 $phone = $_GET['phone'];
@@ -23,7 +24,11 @@ if ($nfc) {
 				$jag_db->get_last_fees_paid_amount ($jag_id));
 			echo "<br>";
 		}
+	} else {
+		echo "NFC tag $nfc not found. <br>";
+		$fees_form = 0;
 	}
+	if ($fees_form) echo '<form action="#">';
 } else if ($phone) {
 	// look up phone number from profile and get the jag_id
 	$jag_id = $jag_db->get_id_from_phone ($phone);
@@ -39,7 +44,11 @@ if ($nfc) {
 				$jag_db->get_last_fees_paid_amount ($jag_id));
 			echo "<br>";
 		}
+	} else {
+		echo "Phone # $phone not found. <br>";
+		$fees_form = 0;
 	}
+	if ($fees_form) echo '<form action="#">';
 } else if ($fees) {
 	// else if fees is getting paid
 	$jag_id = $_GET['jag_id'];
@@ -49,48 +58,55 @@ if ($nfc) {
 			$months = event_to_months ($event);
 			$jag_db->submit_fees ($jag_id, $fees, $months);
 		}
+		echo "Fees $fees paid by successful. <br>";
+	} else {
+		echo "Err... No jaguar specified. <br>";
 	}
+	$fees_form = 0;
 } else {
 	// display all registered jaguars
 	$list = $jag_db->get_all_runners_names ();
-	echo '<form action="#"> <select multiple name="jag_id">';
+	echo '<form action="#">';
+	echo '<select multiple name="jag_id">';
 	foreach ($list as $id => $name) {
 		printf ("<option value=\"%s\">%s</option>", $id, $name);
 	}
 	echo '</select>';
 }
 
-echo <<<_REGISTERED_JAGS
-  <br> <br>
-  Total Fees Paid:<br>
-  <input type="number" name="fees">
+if ($fees_form) {
+	echo <<<_FEES_FORM
+	<br> <br>
+	Total Fees Paid:<br>
+	<input type="number" name="fees">
 
-  <br> <br>
-<fieldset>
-    <legend>Select Event or Months</legend>
-    <input type="radio" name="event" id="ryfm" value="ryfm" /><label for="ryfm">RYFM</label>
-    <input type="radio" name="event" id="scmm" value="scmm" /><label for="scmm">SCMM</label>
-    <input type="radio" name="event" id="tcs10k" value="tcs10k" /><label for="scmm">TCS-10K</label><br>
-    <br>
-    <input type="radio" name="jan" id="jan" value="jan"  /><label for="jan">January</label>
-    <input type="radio" name="feb" id="feb" value="feb"  /><label for="feb">February</label>
-    <input type="radio" name="mar" id="mar" value="mar"  /><label for="mar">March</label><br>
-    <input type="radio" name="apr" id="apr" value="apr"  /><label for="apr">April</label>
-    <input type="radio" name="may" id="may" value="may"  /><label for="may">May</label>
-    <input type="radio" name="jun" id="jun" value="jun"  /><label for="jun">June</label><br>
-    <input type="radio" name="jul" id="jul" value="jul"  /><label for="jul">July</label>
-    <input type="radio" name="aug" id="aug" value="aug"  /><label for="aug">Aug</label>
-    <input type="radio" name="sep" id="sep" value="sep"  /><label for="sep">Sept</label><br>
-    <input type="radio" name="oct" id="oct" value="oct"  /><label for="oct">October</label>
-    <input type="radio" name="nov" id="nov" value="nov"  /><label for="nov">November</label>
-    <input type="radio" name="dec" id="dec" value="dec"  /><label for="dec">Dececember</label><br>
-</fieldset>
+	<br> <br>
+	<fieldset>
+	<legend>Select Event or Months</legend>
+	<input type="radio" name="event" id="ryfm" value="ryfm" /><label for="ryfm">RYFM</label>
+	<input type="radio" name="event" id="scmm" value="scmm" /><label for="scmm">SCMM</label>
+	<input type="radio" name="event" id="tcs10k" value="tcs10k" /><label for="scmm">TCS-10K</label><br>
+	<br>
+	<input type="radio" name="jan" id="jan" value="jan"  /><label for="jan">January</label>
+	<input type="radio" name="feb" id="feb" value="feb"  /><label for="feb">February</label>
+	<input type="radio" name="mar" id="mar" value="mar"  /><label for="mar">March</label><br>
+	<input type="radio" name="apr" id="apr" value="apr"  /><label for="apr">April</label>
+	<input type="radio" name="may" id="may" value="may"  /><label for="may">May</label>
+	<input type="radio" name="jun" id="jun" value="jun"  /><label for="jun">June</label><br>
+	<input type="radio" name="jul" id="jul" value="jul"  /><label for="jul">July</label>
+	<input type="radio" name="aug" id="aug" value="aug"  /><label for="aug">Aug</label>
+	<input type="radio" name="sep" id="sep" value="sep"  /><label for="sep">Sept</label><br>
+	<input type="radio" name="oct" id="oct" value="oct"  /><label for="oct">October</label>
+	<input type="radio" name="nov" id="nov" value="nov"  /><label for="nov">November</label>
+	<input type="radio" name="dec" id="dec" value="dec"  /><label for="dec">Dececember</label><br>
+	</fieldset>
 
-  <br>
-  <input type="submit" value="Submit">
-</form>
+	<br>
+	<input type="submit" value="Submit">
+	</form>
 
-_REGISTERED_JAGS;
+_FEES_FORM;
+}
 
 class jaguars_db {
 
